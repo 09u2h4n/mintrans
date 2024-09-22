@@ -1,0 +1,8 @@
+- Will be added if source language is not in the list make it auto and give an warning or 
+  just raise an error
+
+- Will be added detect function and Detected class in models
+
+- Fix the issiue between auto amd source language
+
+- Will be added support for http/2 and proxies

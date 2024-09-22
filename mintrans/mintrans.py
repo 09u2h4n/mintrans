@@ -1,113 +1,231 @@
-import requests
+import httpx
 import re
 import time
 import random
+from typing import Optional
+from urllib.parse import quote
+
+
+from constants import user_agent
+from exceptions import RateLimitException
+from models import TranslationRequest, TranslationResponse
+
 
 class BingTranslator:
     def __init__(self):
-        self.session = self._get_session()
+        self.client = self._get_client()
 
-    def _get_session(self):
-        session = requests.Session()
+    def _get_client(self):
+        client = httpx.Client()
+
         headers = {
-            'User-Agent': '',
-            'Referer': 'https://www.bing.com/translator'
+            "User-Agent": user_agent,
+            "Referer": "https://www.bing.com/translator",
         }
-        session.headers.update(headers)
-        response = session.get('https://www.bing.com/translator')
+
+        client.headers.update(headers)
+
+        response = client.get("https://www.bing.com/translator")
+
         content = response.text
-        params_pattern = re.compile(r'params_AbusePreventionHelper\s*=\s*(\[.*?\]);', re.DOTALL)
+
+        params_pattern = re.compile(
+            r"params_AbusePreventionHelper\s*=\s*(\[.*?\]);", re.DOTALL
+        )
+
         match = params_pattern.search(content)
         if match:
             params = match.group(1)
-            key, token, time = [p.strip('"').replace('[', '').replace(']', '') for p in params.split(',')]
-            session.headers.update({'key': key, 'token': token})
+            key, token, time = [
+                p.strip('"').replace("[", "").replace("]", "")
+                for p in params.split(",")
+            ]
+            client.headers.update({"key": key, "token": token})
+
         match = re.search(r'IG:"(\w+)"', content)
         if match:
             ig_value = match.group(1)
-            session.headers.update({'IG': ig_value})
-        return session
+            client.headers.update({"IG": ig_value})
 
-    def translate(self, text, from_lang, to_lang):
-        url = f'https://www.bing.com/ttranslatev3?isVertical=1&&IG={self.session.headers.get("IG")}&IID=translator.{random.randint(5019, 5026)}.{random.randint(1, 3)}'
-        data = {'': '', 'fromLang': from_lang, 'text': text, 'to': to_lang, 'token': self.session.headers.get('token'), 'key': self.session.headers.get('key')}
-        response = self.session.post(url, data=data).json()
+        return client
+
+    def translate_text(self, text: str, target_language: str, source_language: str = "auto", auto_close: bool = False) -> TranslationResponse:
+        try:
+            translation_request = TranslationRequest(
+                text=text,
+                source_language=source_language,
+                target_language=target_language,
+            )
+        except ValidationError as e:
+            raise ValueError(f"Invalid input: {e}")
+
+        url = f"https://www.bing.com/ttranslatev3?isVertical=1&&IG={self.client.headers.get('IG')}&IID=translator.{random.randint(5019, 5026)}.{random.randint(1, 3)}"
+
+        data = {
+            "": "",
+            "fromLang": translation_request.source_language,
+            "text": translation_request.text,
+            "to": translation_request.target_language,
+            "token": self.client.headers.get("token"),
+            "key": self.client.headers.get("key"),
+        }
+
+        response = self.client.post(url, data=data).json()
+        
+        if auto_close:
+            self.client.close()
+
         if type(response) is dict:
-            if 'ShowCaptcha' in response.keys():
-                self.session = self._get_session()
-                return self.translate(text, from_lang, to_lang)
-            elif 'statusCode' in response.keys():
-                if response['statusCode'] == 400:
-                    response['errorMessage'] = f'1000 characters limit! You send {len(text)} characters.'
+            if "ShowCaptcha" in response.keys():
+                self.client = self._get_client()
+                return self.translate_text(translation_request.text, translation_request.source_language, translation_request.target_language)
+            elif "statusCode" in response.keys():
+                if response["statusCode"] == 400:
+                    response[
+                        "errorMessage"
+                    ] = f"1000 characters limit! You send {len(text)} characters."
         else:
-            return response[0]
+            response = response[0]
+            return TranslationResponse(
+                text=response["translations"][0]["text"],
+                source_language=response["detectedLanguage"]["language"],
+                target_language=response["translations"][0]["to"],
+            )
         return response
 
-class RateLimitException(Exception):
-    pass
+    def close(self):
+        self.client.close()
+
 
 class DeepLTranslator:
-    def __init__(self):
-        pass
+    def __init__(self) -> None:
+        self.client = httpx.Client()
 
-    def translate(self, text, from_lang, to_lang):
-        json = {
-    "jsonrpc": "2.0",
-    "method": "LMT_handle_jobs",
-    "params": {
-        "jobs": [{
-            "kind": "default",
-            "sentences": [{
-                "text": text,
-                "id": 1,
-                "prefix": ""
-            }],
-            "raw_en_context_before": [],
-            "raw_en_context_after": [],
-            "preferred_num_beams": 4
-        }],
-        "lang": {
-            "target_lang": to_lang.upper(),
-            "preference": {
-                "weight": {},
-                "default": "default"
-            },
-            "source_lang_computed": from_lang.upper()
-        },
-        "priority": 1,
-        "commonJobParams": {
-            "regionalVariant": "en-US",
-            "mode": "translate",
-            "textType": "plaintext",
-            "browserType": 1
-        },
-        "timestamp": round(time.time() * 1.5)
-    },
-    "id": random.randint(100000000, 9999999999)
-}
-        r = requests.post('https://www2.deepl.com/jsonrpc?method=LMT_handle_jobs', json=json)
+    def translate_text(self, text: str, target_language: str, source_language: str = "auto", auto_close: bool = False) -> TranslationResponse:
         try:
-            translated_text = r.json()['result']['translations'][-1]['beams'][-1]['sentences'][-1]['text']
-            return translated_text
+            translation_request = TranslationRequest(
+                text=text,
+                source_language=source_language,
+                target_language=target_language,
+            )
+        except ValidationError as e:
+            raise ValueError(f"Invalid input: {e}")
+
+        json = {
+            "jsonrpc": "2.0",
+            "method": "LMT_handle_jobs",
+            "params": {
+                "jobs": [
+                    {
+                        "kind": "default",
+                        "sentences": [
+                            {"text": translation_request.text, "id": 1, "prefix": ""}
+                        ],
+                        "preferred_num_beams": translation_request.num_beams,
+                    }
+                ],
+                "lang": {
+                    "target_lang": translation_request.target_language,
+                    "preference": {"weight": {}},
+                },
+                "timestamp": round(time.time() * 1.5),
+            },
+        }
+
+        if translation_request.source_language != "auto":
+            json["params"]["lang"][
+                "source_lang_computed"
+            ] = translation_request.source_language
+
+        params = {"method": "LMT_handle_jobs"}
+
+        headers = {"content-type": "application/json"}
+
+        response = self.client.post(
+            "https://www2.deepl.com/jsonrpc", json=json, params=params, headers=headers
+        ).json()
+
+        if auto_close:
+            self.client.close()
+
+        try:
+            return TranslationResponse(
+                text=response["result"]["translations"][0]["beams"][0]["sentences"][0]["text"],
+                source_language=response["result"]["source_lang"],
+                target_language=response["result"]["target_lang"],
+            )
         except KeyError:
-            raise RateLimitException('Rate limit error!')
+            raise RateLimitException("Rate limit error!")
+
+    def close(self):
+        self.client.close()
+
 
 class GoogleTranslator:
     def __init__(self):
-        pass
+        self.client = httpx.Client()
 
-    def translate(self, text, from_lang, to_lang):
-        url = 'https://translate.googleapis.com/translate_a/single'
+    def translate_text(self, text: str, target_language: str, source_language: str = "auto", auto_close: bool = False) -> TranslationResponse:
+        try:
+            translation_request = TranslationRequest(
+                text=text,
+                source_language=source_language,
+                target_language=target_language,
+            )
+        except ValidationError as e:
+            raise ValueError(f"Invalid input: {e}")
+
+        url = "https://translate.google.com/_/TranslateWebserverUi/data/batchexecute"
+
+        params = {"rpcids": "MkEWBc"}
+
+        payload = "f.req=" + quote(f'[[["MkEWBc","[[\\"{text}\\",\\"auto\\",\\"tr\\",true],[]]",null,"generic"]]]')
+        
+
+
+    def translate_text_legacy(self, text, source_language, target_language, auto_close: bool = False) -> TranslationResponse:
+        try:
+            translation_request = TranslationRequest(
+                text=text,
+                source_language=source_language,
+                target_language=target_language,
+            )
+        except ValidationError as e:
+            raise ValueError(f"Invalid input: {e}")
+
+        url = "https://translate.googleapis.com/translate_a/single"
 
         params = {
-        'client': 'gtx',
-        'sl': 'auto',
-        'tl': to_lang,
-        'hl': from_lang,
-        'dt': ['t', 'bd'],
-        'dj': '1',
-        'source': 'popup5',
-        'q': text
+            "client": "gtx",
+            "sl": "auto",
+            "tl": translation_request.target_language,
+            "hl": translation_request.source_language,
+            "dt": ["t", "bd"],
+            "dj": "1",
+            "source": "popup5",
+            "q": translation_request.text,
         }
 
-        return requests.get(url, params=params).json()
+        response = self.client.get(url, params=params).json()
+
+        if auto_close:
+            self.client.close()
+
+        try:
+            return TranslationResponse(
+                text=response["sentences"][0]["trans"],
+                source_language=response["src"],
+                target_language=translation_request.target_language,
+            )
+        except KeyError:
+            raise RateLimitException("Rate limit error!")
+
+    def close(self):
+        self.client.close()
+
+
+if __name__ == "__main__":
+    t = GoogleTranslator()
+    print(
+        t.translate_text_legacy("hello", source_language="en", target_language="tr", auto_close=True).text
+    )

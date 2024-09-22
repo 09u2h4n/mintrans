@@ -5,8 +5,8 @@ with open("README.md", "r", encoding="utf-8") as f:
 
 setup(
     name="mintrans",
-    version="1.0.1",
-    author="Maehdakvan",
+    version="1.0.2",
+    author="Maehdakvan & 09u2h4n",
     author_email="visitanimation@google.com",
     description="Mintrans is a free API wrapper that utilizes Bing, DeepL, and Google Translate for translation purposes.",
     long_description=long_description,
@@ -21,6 +21,6 @@ setup(
         "Operating System :: OS Independent",
     ],
     packages=find_packages(),
-    install_requires=['requests'],
+    install_requires=['httpx'],
     python_requires='>=3.6'
 )

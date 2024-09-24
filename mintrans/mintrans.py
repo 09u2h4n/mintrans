@@ -49,7 +49,13 @@ class BingTranslator:
 
         return client
 
-    def translate_text(self, text: str, target_language: str, source_language: str = "auto", auto_close: bool = False) -> TranslationResponse:
+    def translate_text(
+        self,
+        text: str,
+        target_language: str,
+        source_language: str = "auto",
+        auto_close: bool = False,
+    ) -> TranslationResponse:
         try:
             translation_request = TranslationRequest(
                 text=text,
@@ -71,14 +77,18 @@ class BingTranslator:
         }
 
         response = self.client.post(url, data=data).json()
-        
+
         if auto_close:
             self.client.close()
 
         if type(response) is dict:
             if "ShowCaptcha" in response.keys():
                 self.client = self._get_client()
-                return self.translate_text(translation_request.text, translation_request.source_language, translation_request.target_language)
+                return self.translate_text(
+                    translation_request.text,
+                    translation_request.source_language,
+                    translation_request.target_language,
+                )
             elif "statusCode" in response.keys():
                 if response["statusCode"] == 400:
                     response[
@@ -101,7 +111,13 @@ class DeepLTranslator:
     def __init__(self) -> None:
         self.client = httpx.Client()
 
-    def translate_text(self, text: str, target_language: str, source_language: str = "auto", auto_close: bool = False) -> TranslationResponse:
+    def translate_text(
+        self,
+        text: str,
+        target_language: str,
+        source_language: str = "auto",
+        auto_close: bool = False,
+    ) -> TranslationResponse:
         try:
             translation_request = TranslationRequest(
                 text=text,
@@ -150,7 +166,9 @@ class DeepLTranslator:
 
         try:
             return TranslationResponse(
-                text=response["result"]["translations"][0]["beams"][0]["sentences"][0]["text"],
+                text=response["result"]["translations"][0]["beams"][0]["sentences"][0][
+                    "text"
+                ],
                 source_language=response["result"]["source_lang"],
                 target_language=response["result"]["target_lang"],
             )
@@ -165,7 +183,13 @@ class GoogleTranslator:
     def __init__(self):
         self.client = httpx.Client()
 
-    def translate_text(self, text: str, target_language: str, source_language: str = "auto", auto_close: bool = False) -> TranslationResponse:
+    def translate_text(
+        self,
+        text: str,
+        target_language: str,
+        source_language: str = "auto",
+        auto_close: bool = False,
+    ) -> TranslationResponse:
         try:
             translation_request = TranslationRequest(
                 text=text,
@@ -179,11 +203,13 @@ class GoogleTranslator:
 
         params = {"rpcids": "MkEWBc"}
 
-        payload = "f.req=" + quote(f'[[["MkEWBc","[[\\"{translation_request.text}\\",\\"{translation_request.source_language}\\",\\"{translation_request.target_language}\\",true],[]]",null,"generic"]]]')
+        payload = "f.req=" + quote(
+            f'[[["MkEWBc","[[\\"{translation_request.text}\\",\\"{translation_request.source_language}\\",\\"{translation_request.target_language}\\",true],[]]",null,"generic"]]]'
+        )
 
         headers = {
             "content-type": "application/x-www-form-urlencoded;charset=UTF-8",
-            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36"
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
         }
 
         response = self.client.post(url, params=params, data=payload, headers=headers)
@@ -202,13 +228,27 @@ class GoogleTranslator:
         except KeyError:
             raise RateLimitException("Rate limit error!")
 
-    def translate_image(self, image: bytes, target_language: str, source_language: str = "auto", auto_close: bool = False) -> TranslationResponse:
+    def translate_image(
+        self,
+        image: bytes,
+        target_language: str,
+        source_language: str = "auto",
+        auto_close: bool = False,
+    ) -> TranslationResponse:
         raise NotImplementedError("Image translation is not implemented yet!")
 
-    def translate_document(self, document: bytes, target_language: str, source_language: str = "auto", auto_close: bool = False) -> TranslationResponse:
+    def translate_document(
+        self,
+        document: bytes,
+        target_language: str,
+        source_language: str = "auto",
+        auto_close: bool = False,
+    ) -> TranslationResponse:
         raise NotImplementedError("Document translation is not implemented yet!")
 
-    def translate_text_legacy(self, text, source_language, target_language, auto_close: bool = False) -> TranslationResponse:
+    def translate_text_legacy(
+        self, text, source_language, target_language, auto_close: bool = False
+    ) -> TranslationResponse:
         try:
             translation_request = TranslationRequest(
                 text=text,
@@ -246,7 +286,9 @@ class GoogleTranslator:
             raise RateLimitException("Rate limit error!")
 
     def detect_language(self, text: str, auto_close: bool = False) -> str:
-        return self.translate_text(text, source_language="auto", target_language="tr", auto_close=auto_close).source_language
+        return self.translate_text(
+            text, source_language="auto", target_language="tr", auto_close=auto_close
+        ).source_language
 
     def close(self):
         self.client.close()
@@ -254,6 +296,4 @@ class GoogleTranslator:
 
 if __name__ == "__main__":
     t = GoogleTranslator()
-    print(
-        t.detect_language("Hello Brother!", auto_close=True)
-    )
+    print(t.detect_language("Hello Brother!", auto_close=True))

@@ -1,6 +1,7 @@
 from typing import Optional
 import json
 
+
 class TranslationRequest:
     def __init__(
         self,
@@ -112,11 +113,13 @@ class TranslationResponse:
     #     self._alternative_texts = value
 
     def json(self):
-        return json.dumps({
-            "text": self.text,
-            "source_language": self.source_language,
-            "target_language": self.target_language,
-        })
+        return json.dumps(
+            {
+                "text": self.text,
+                "source_language": self.source_language,
+                "target_language": self.target_language,
+            }
+        )
 
 
 if __name__ == "__main__":

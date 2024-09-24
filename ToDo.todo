@@ -14,3 +14,5 @@
 - Will be added caches for better and faster responses and it will also help for bot detection
 
 - Will be added maybe CONTRIBUTORS.md instead of adding maintainer part into setup.py
+
+- Will be moved auto_close from method to class itself as paramater

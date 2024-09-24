@@ -54,8 +54,7 @@ class BingTranslator:
         text: str,
         target_language: str,
         source_language: str = "auto",
-        auto_close: bool = False,
-    ) -> TranslationResponse:
+        auto_close: bool = False,) -> TranslationResponse:
         try:
             translation_request = TranslationRequest(
                 text=text,
@@ -103,6 +102,11 @@ class BingTranslator:
             )
         return response
 
+    def detect_language(self, text: str, auto_close: bool = False) -> str:
+        return self.translate_text(
+            text, source_language="auto", target_language="tr", auto_close=auto_close
+        ).source_language
+
     def close(self):
         self.client.close()
 
@@ -116,8 +120,7 @@ class DeepLTranslator:
         text: str,
         target_language: str,
         source_language: str = "auto",
-        auto_close: bool = False,
-    ) -> TranslationResponse:
+        auto_close: bool = False,) -> TranslationResponse:
         try:
             translation_request = TranslationRequest(
                 text=text,
@@ -137,7 +140,7 @@ class DeepLTranslator:
                         "sentences": [
                             {"text": translation_request.text, "id": 1, "prefix": ""}
                         ],
-                        "preferred_num_beams": translation_request.num_beams,
+                        "preferred_num_beams": 1 # translation_request.num_beams,
                     }
                 ],
                 "lang": {
@@ -178,6 +181,10 @@ class DeepLTranslator:
     def close(self):
         self.client.close()
 
+    def detect_language(self, text: str, auto_close: bool = False) -> str:
+        return self.translate_text(
+            text, source_language="auto", target_language="tr", auto_close=auto_close
+        ).source_language
 
 class GoogleTranslator:
     def __init__(self):
@@ -295,5 +302,5 @@ class GoogleTranslator:
 
 
 if __name__ == "__main__":
-    t = GoogleTranslator()
+    t = DeepLTranslator()
     print(t.detect_language("Hello Brother!", auto_close=True))

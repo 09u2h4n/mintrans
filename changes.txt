@@ -1,0 +1,4 @@
+1) Replaced requests to httpx for better performance
+2) Added http/2 support
+3) Added Proxy support (Includes socks)
+4) Added future protective code

@@ -3,6 +3,12 @@
 
 - Will be added detect function and Detected class in models
 
-- Fix the issiue between auto amd source language
+- Fix the issiue between auto and source language
 
 - Will be added support for http/2 and proxies
+
+- Will be added documents and image translation into Google 
+
+- Will be added the changes to the readme file
+
+- Will be added caches for better and faster responses and it will also help for bot detection

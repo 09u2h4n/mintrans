@@ -5,7 +5,7 @@ import random
 from typing import Optional
 from urllib.parse import quote
 
-
+from tools import google_response_formatter
 from constants import user_agent
 from exceptions import RateLimitException
 from models import TranslationRequest, TranslationResponse
@@ -28,7 +28,7 @@ class BingTranslator:
         response = client.get("https://www.bing.com/translator")
 
         content = response.text
-
+        # Some regex magic happens here
         params_pattern = re.compile(
             r"params_AbusePreventionHelper\s*=\s*(\[.*?\]);", re.DOTALL
         )
@@ -179,9 +179,34 @@ class GoogleTranslator:
 
         params = {"rpcids": "MkEWBc"}
 
-        payload = "f.req=" + quote(f'[[["MkEWBc","[[\\"{text}\\",\\"auto\\",\\"tr\\",true],[]]",null,"generic"]]]')
-        
+        payload = "f.req=" + quote(f'[[["MkEWBc","[[\\"{translation_request.text}\\",\\"{translation_request.source_language}\\",\\"{translation_request.target_language}\\",true],[]]",null,"generic"]]]')
 
+        headers = {
+            "content-type": "application/x-www-form-urlencoded;charset=UTF-8",
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36"
+        }
+
+        response = self.client.post(url, params=params, data=payload, headers=headers)
+
+        if auto_close:
+            self.client.close()
+
+        response = google_response_formatter(response.text)
+
+        try:
+            return TranslationResponse(
+                text=response["text"],
+                source_language=response["source_language"],
+                target_language=response["target_language"],
+            )
+        except KeyError:
+            raise RateLimitException("Rate limit error!")
+
+    def translate_image(self, image: bytes, target_language: str, source_language: str = "auto", auto_close: bool = False) -> TranslationResponse:
+        raise NotImplementedError("Image translation is not implemented yet!")
+
+    def translate_document(self, document: bytes, target_language: str, source_language: str = "auto", auto_close: bool = False) -> TranslationResponse:
+        raise NotImplementedError("Document translation is not implemented yet!")
 
     def translate_text_legacy(self, text, source_language, target_language, auto_close: bool = False) -> TranslationResponse:
         try:
@@ -220,6 +245,9 @@ class GoogleTranslator:
         except KeyError:
             raise RateLimitException("Rate limit error!")
 
+    def detect_language(self, text: str, auto_close: bool = False) -> str:
+        return self.translate_text(text, source_language="auto", target_language="tr", auto_close=auto_close).source_language
+
     def close(self):
         self.client.close()
 
@@ -227,5 +255,5 @@ class GoogleTranslator:
 if __name__ == "__main__":
     t = GoogleTranslator()
     print(
-        t.translate_text_legacy("hello", source_language="en", target_language="tr", auto_close=True).text
+        t.detect_language("Hello Brother!", auto_close=True)
     )

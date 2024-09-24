@@ -1,5 +1,5 @@
 from typing import Optional
-
+import json
 
 class TranslationRequest:
     def __init__(
@@ -7,7 +7,7 @@ class TranslationRequest:
         text: str,
         source_language: str = "auto",
         target_language: str = "en",
-        num_beams: Optional[int] = 1,
+        # num_beams: Optional[int] = 1,
     ):
         if len(text) > 1500:
             raise ValueError("Text must not exceed 1500 characters")
@@ -100,7 +100,7 @@ class TranslationResponse:
             raise TypeError("Target language must be a string")
         self._target_language = value.lower()
 
-    # In the next updated i optionally add for Google
+    # In the next updates maybe i optionally add for Google
     # @property
     # def alternative_texts(self) -> list:
     #     return self._alternative_texts
@@ -110,6 +110,13 @@ class TranslationResponse:
     #     if not isinstance(value, list):
     #         raise TypeError("Alternative texts must be a list")
     #     self._alternative_texts = value
+
+    def json(self):
+        return json.dumps({
+            "text": self.text,
+            "source_language": self.source_language,
+            "target_language": self.target_language,
+        })
 
 
 if __name__ == "__main__":

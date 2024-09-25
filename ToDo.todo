@@ -18,3 +18,5 @@
 - Will be moved auto_close from method to class itself as paramater
 
 - Will be added "maybe" open source api or models 
+
+- Will be fixed issiues related to client 

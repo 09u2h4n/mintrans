@@ -4,12 +4,11 @@ __pycache__/
 *$py.class
 
 # tests
-*-test.py
 test.txt
 results.json
 
 # idx and vscode
-.idx
+.*.vsix
 .vscode
 
 # Notes

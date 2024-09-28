@@ -1,116 +1,35 @@
-from typing import Optional
+from pydantic import BaseModel, Field, field_validator
 import json
 
 
-class TranslationRequest:
-    def __init__(
-        self,
-        text: str,
-        source_language: str = "auto",
-        target_language: str = "en",
-        # num_beams: Optional[int] = 1,
-    ):
-        if len(text) > 1500:
-            raise ValueError("Text must not exceed 1500 characters")
-        self.text = text
-        self.source_language = source_language
-        self.target_language = target_language
-        # self.num_beams = num_beams
+class TranslationRequest(BaseModel):
+    text: str = Field(..., max_length=1500)
+    source_language: str = "auto"
+    target_language: str = "en"
 
-    @property
-    def text(self) -> str:
-        return self._text
-
-    @text.setter
-    def text(self, value: str):
-        if not isinstance(value, str):
-            raise TypeError("Text must be a string")
-        # Maybe this part is a bit buggy
-        # httpx could raise another error like status code 400
-        # if text is too long or something like that
+    @field_validator("text")
+    def check_text_length(cls, value):
         if len(value) > 1500:
             raise ValueError("Text must not exceed 1500 characters")
-        self._text = value
+        return value
 
-    @property
-    def source_language(self) -> str:
-        return self._source_language
-
-    @source_language.setter
-    def source_language(self, value: str):
+    @field_validator("source_language", "target_language")
+    def validate_language(cls, value):
         if not isinstance(value, str):
-            raise TypeError("Source language must be a string")
-        self._source_language = value
+            raise TypeError("Language must be a string")
+        return value.lower()
 
-    @property
-    def target_language(self) -> str:
-        return self._target_language
 
-    @target_language.setter
-    def target_language(self, value: str):
+class TranslationResponse(BaseModel):
+    text: str
+    source_language: str
+    target_language: str
+
+    @field_validator("text", "source_language", "target_language")
+    def validate_fields(cls, value):
         if not isinstance(value, str):
-            raise TypeError("Target language must be a string")
-        self._target_language = value
-
-    # Maybe in next updates i can add num beams for DeepL
-    # @property
-    # def num_beams(self) -> Optional[int]:
-    #     return self._num_beams
-
-    # @num_beams.setter
-    # def num_beams(self, value: Optional[int]):
-    #     if value is not None and not isinstance(value, int):
-    #         raise TypeError("Number of beams must be an integer or None")
-    #     self._num_beams = value
-
-
-class TranslationResponse:
-    def __init__(self, text: str, source_language: str, target_language: str):
-        self.text = text
-        self.source_language = source_language
-        self.target_language = target_language
-        # self.alternative_texts = alternative_texts
-
-    @property
-    def text(self) -> str:
-        return self._text
-
-    @text.setter
-    def text(self, value: str):
-        if not isinstance(value, str):
-            raise TypeError("Translated text must be a string")
-        self._text = value
-
-    @property
-    def source_language(self) -> str:
-        return self._source_language
-
-    @source_language.setter
-    def source_language(self, value: str):
-        if not isinstance(value, str):
-            raise TypeError("Source language must be a string")
-        self._source_language = value.lower()
-
-    @property
-    def target_language(self) -> str:
-        return self._target_language
-
-    @target_language.setter
-    def target_language(self, value: str):
-        if not isinstance(value, str):
-            raise TypeError("Target language must be a string")
-        self._target_language = value.lower()
-
-    # In the next updates maybe i optionally add for Google
-    # @property
-    # def alternative_texts(self) -> list:
-    #     return self._alternative_texts
-
-    # @alternative_texts.setter
-    # def alternative_texts(self, value: list):
-    #     if not isinstance(value, list):
-    #         raise TypeError("Alternative texts must be a list")
-    #     self._alternative_texts = value
+            raise TypeError("Field must be a string")
+        return value.lower()
 
     def json(self):
         return json.dumps(
@@ -122,6 +41,58 @@ class TranslationResponse:
         )
 
 
+class DetectedLanguageResponse(BaseModel):
+    language: str
+
+    @field_validator("language")
+    def validate_language(cls, value):
+        if not isinstance(value, str):
+            raise TypeError("Language must be a string")
+        return value.lower()
+
+    def json(self):
+        return json.dumps({"language": self.language})
+
+
+class FileRequests(TranslationRequest):
+    file_path: str
+    
+    @field_validator("file_path")
+    def validate_file_path(cls, value):
+        if not isinstance(value, str):
+            raise TypeError("File path must be a string")
+        return value
+    
+
+class FileResponse(BaseModel):
+    file: bytes
+    source_language: str
+    target_language: str
+
+    @field_validator("file")
+    def validate_file(cls, value):
+        if not isinstance(value, bytes):
+            raise TypeError("File must be a bytes object")
+        return value
+    
+    @field_validator("source_language", "target_language")
+    def validate_language(cls, value):
+        if not isinstance(value, str):
+            raise TypeError("Language must be a string")
+        return value.lower()
+
+    def json(self):
+        return json.dumps(
+            {
+                "file": self.file.decode("utf-8"),
+                "source_language": self.source_language,
+                "target_language": self.target_language,
+            }
+        )
+
+    def save(self):
+        print("saving")
+
 if __name__ == "__main__":
-    t = TranslationRequest("hello", "en", "tr")
+    t = TranslationRequest(text="hello", source_language="en", target_language="tr")
     print(t)

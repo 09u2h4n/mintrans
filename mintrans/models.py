@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field, field_validator
 import json
-
+from pathlib import Path
+from tools import base642data, data2base64
 
 class TranslationRequest(BaseModel):
     text: str = Field(..., max_length=1500)
@@ -54,15 +55,26 @@ class DetectedLanguageResponse(BaseModel):
         return json.dumps({"language": self.language})
 
 
-class FileRequests(TranslationRequest):
-    file_path: str
+class FileRequest(TranslationRequest):
+    text: str = ""
+    file_path: Path
     
     @field_validator("file_path")
     def validate_file_path(cls, value):
-        if not isinstance(value, str):
-            raise TypeError("File path must be a string")
+        if not isinstance(value, Path):
+            raise TypeError("File path must be a Path")
         return value
+
+    @property
+    def file_data_encoded(self):
+        if not self.file_path.exists():
+            raise FileNotFoundError(f"File not found: {self.file_path}")
     
+        with self.file_path.open("rb") as f:
+            file_data = f.read()
+
+        encoded_data = data2base64(file_data)
+        return encoded_data
 
 class FileResponse(BaseModel):
     file: bytes
@@ -94,5 +106,6 @@ class FileResponse(BaseModel):
         print("saving")
 
 if __name__ == "__main__":
-    t = TranslationRequest(text="hello", source_language="en", target_language="tr")
+    t = FileRequest(file_path="./mintrans/mintrans.py", source_language="en", target_language="tr")
     print(t)
+

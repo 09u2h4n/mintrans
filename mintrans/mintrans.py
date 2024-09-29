@@ -5,11 +5,12 @@ import time
 import random
 from typing import Optional
 from urllib.parse import quote
+from pathlib import Path
 
-from tools import google_response_formatter
+from tools import google_text_response_formatter, google_file_response_formatter
 from constants import user_agents
 from exceptions import RateLimitException
-from models import TranslationRequest, TranslationResponse, DetectedLanguageResponse, FileRequests, FileResponse
+from models import TranslationRequest, TranslationResponse, DetectedLanguageResponse, FileRequest, FileResponse
 
 class BaseTranslator:
     def __init__(self):
@@ -221,8 +222,9 @@ class GoogleTranslator(BaseTranslator):
         })
 
         response = self.client.post(url, params=params, data=payload, headers=headers)
+        # print(response.text)
 
-        response = google_response_formatter(response.text)
+        response = google_text_response_formatter(response.text)
 
         try:
             return TranslationResponse(
@@ -235,12 +237,12 @@ class GoogleTranslator(BaseTranslator):
 
     def translate_image(
         self,
-        image_path: str,
+        image_path: Path,
         target_language: str,
-        source_language: str = "auto",) -> TranslationResponse:
+        source_language: str = "auto",) -> FileResponse:
         raise NotImplementedError("Image translation is not implemented yet!")
         try:
-            FileRequests(
+            file_request = FileRequest(
                 file_path=image_path,
                 source_language=source_language,
                 target_language=target_language,
@@ -248,9 +250,31 @@ class GoogleTranslator(BaseTranslator):
         except ValidationError as e:
             raise ValueError(f"Invalid input: {e}")
 
+        url = "https://translate.google.com/_/TranslateWebserverUi/data/batchexecute"
+
+        params = {"rpcids": "WqWDPb"}
+
+        f_req_data = f'[[["WqWDPb", "[[\\"{file_request.file_data_encoded}\\",\\"image/jpeg\\"],\\"{file_request.source_language}\\",\\"{file_request.target_language}\\"]", null, "generic"]]]'
+
+        payload = {
+            'f.req': f_req_data,
+        }
+
+        headers = self.get_headers()
+        headers.update({
+            "content-type": "application/x-www-form-urlencoded;charset=UTF-8",
+            # "X-Goog-BatchExecute-Bgr": '[";zNK40orQAAYE3UGHJN1fI9NznCOeFGUmADQBEArZ1C5Mchj3qFijBIVo1JYBSjJDNxZAxhreKoF_Dd4dHOBFVjaLRC75KBOAjZZkvjZwHwAAAfdPAAAAHHUBB2MAQLQLssYzf3Wu0yWZ7Y2P0SmQTnn-x_zhnRfraTk9luQz_kA_2SRKOm2IpB3VlPVXlYE1KHpljaD3yKvzpZC5LIwXAGJbP6dVZiy-MX_Rb5yofs1OVKmxaP174zaEqZwyMo6fia6nrCruTQ4bL0342KMBsb5Er9yr5VxPwkGf_dZwIvkeljFYrDT7mw4OZxv0QvXJoyVxYKmkrjo4j4ujrfgvh0F8JIQCxJF-8EE3IZAwDwNlDSj-fiNR1iPXU_JMNapRSEf9FPf7zv-MMO0e56F49yG4OEYWSCPUh-Sg1tZSh4aOGBmZa7gCPc_-ZTZbnMXqTrhqTUBs4e-tvbq2N-XFA-ocAZHz8pKD0KyTyFUMX8xoajJ_gU48zjg3b3pYGT80_8ZqlY6TVNAQXOyEpwvcIu6FhzD3_ZlzJA9C_hi6zprjQQ0rXKMIraXAH0e5dnts3TN0E3qr1rtLG5c68JKgptcFMvsh-HXrsYSpmLeWsyizkFO0AODYladyCzEnD-_Zrx5Lkkr9ovw7vMIO0P6BnTj_RguubxnH5gWgrNu8ALrcy00yylOjBYyjWZpnYNk4X_OYh0jnMPQHA2z_vggxLb0xZhWjV8hZfBldyojlSUZQMix3c3ibKuoa9nAXF0G42thaWlFJOuT3WCw4NkZ_odHlTvzHSwlid4vGtyjM6HjPcYrTOzN21Z_7I0gwCdjSPFJ_vSbB20wmZXc9VKn8E_QG3XPsCYBEIMVKjZun0orn0jLM6-rdc84LfGA7l-HGAg3E6IL630hMTer6donE5YJ7nNVWYuErqjS35egpG4fiDT-bIsJbfRNSS2JhHu3lREXZjE-LFjacktOCMkvEMp8qNmR3qk3aeOeJOeOxlE_hmB-HqzqM3RZ_CbyafmkTJqRXMtb2Rr76AjAYAMsiO1PS_jnOw3xuTdXgl66Y8rpHN-GlPQcbire7m_xDI85aa1pLSUcQ0cq1_jiYPZxHI3fzzxlwHw_mlMv9dnekVgVyzIijh5jSh9YgS0yKp6hq_0TZr2jJnsrx8TapHQOa43Y3uMRewh1S8IkS2Ht7zxwwqhtL0yb7spSt11kaO800G9FoxAFZLQXwAKy-eW5LBvl-DnN14B1Rci6_e0EFDevbnrq-905L_kclsdWen7OIHo5DlrsrZCPBvQ",null,null,1148,38,null,null,0,"2"]'
+            })
+
+        response = self.client.post(url, params=params, data=payload, headers=headers)
+
+        # response = google_file_response_formatter(response.text)
+
+        print(response)
+
     def translate_document(
         self,
-        document: bytes,
+        document: str,
         target_language: str,
         source_language: str = "auto",) -> TranslationResponse:
         raise NotImplementedError("Document translation is not implemented yet!")
@@ -306,6 +330,6 @@ class GoogleTranslator(BaseTranslator):
 
 if __name__ == "__main__":
     with GoogleTranslator() as t:
-        print(t.translate_image("Merhaba Kanka Naber!", "tr").json())
+        t.translate_image("image.jpg", "tr")
         # print(t.detect_language("Merhaba Kanka Naber!").json())
         # print(t.translate_text("Hello Brother!", target_language="tr", source_language="auto-detect").json())
